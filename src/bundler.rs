@@ -861,7 +861,10 @@ fn visit_vars<'a, 'b>(
           }
         }
         Some(TokenOrValue::UnresolvedColor(color)) => match color {
-          UnresolvedColor::RGB { alpha, .. } | UnresolvedColor::HSL { alpha, .. } => {
+          UnresolvedColor::RGB { alpha, .. }
+          | UnresolvedColor::HSL { alpha, .. }
+          | UnresolvedColor::OKLAB { alpha, .. }
+          | UnresolvedColor::OKLCH { alpha, .. } => {
             stack.push(alpha.0.iter_mut());
           }
           UnresolvedColor::LightDark { light, dark } => {

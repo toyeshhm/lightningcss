@@ -1076,6 +1076,44 @@ export type UnresolvedColor =
     }
   | {
       /**
+       * The a component.
+       */
+      a: number;
+      /**
+       * The unresolved alpha component.
+       */
+      alpha: TokenOrValue[];
+      /**
+       * The b component.
+       */
+      b: number;
+      /**
+       * The lightness component.
+       */
+      l: number;
+      type: "oklab";
+    }
+  | {
+      /**
+       * The unresolved alpha component.
+       */
+      alpha: TokenOrValue[];
+      /**
+       * The chroma component.
+       */
+      c: number;
+      /**
+       * The hue component.
+       */
+      h: number;
+      /**
+       * The lightness component.
+       */
+      l: number;
+      type: "oklch";
+    }
+  | {
+      /**
        * The dark value.
        */
       dark: TokenOrValue[];

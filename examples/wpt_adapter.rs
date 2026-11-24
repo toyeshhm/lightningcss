@@ -16,7 +16,10 @@ fn deferred(tokens: &TokenList) -> bool {
     TokenOrValue::Var(_) | TokenOrValue::Env(_) => true,
     TokenOrValue::Function(f) => deferred(&f.arguments),
     TokenOrValue::UnresolvedColor(color) => match color {
-      UnresolvedColor::RGB { alpha, .. } | UnresolvedColor::HSL { alpha, .. } => deferred(alpha),
+      UnresolvedColor::RGB { alpha, .. }
+      | UnresolvedColor::HSL { alpha, .. }
+      | UnresolvedColor::OKLAB { alpha, .. }
+      | UnresolvedColor::OKLCH { alpha, .. } => deferred(alpha),
       UnresolvedColor::LightDark { light, dark } => deferred(light) || deferred(dark),
     },
     _ => false,

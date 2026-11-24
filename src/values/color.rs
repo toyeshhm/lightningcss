@@ -1201,10 +1201,7 @@ fn parse_lab<'i, 't, T: TryFrom<CssColor> + ColorSpace, F: Fn(f32, f32, f32, f32
   // https://www.w3.org/TR/css-color-4/#funcdef-lab
   input.parse_nested_block(|input| {
     parser.parse_relative::<T, _, _>(input, |input, parser| {
-      // f32::max() does not propagate NaN, so use clamp for now until f32::maximum() is stable.
-      let l = parse_number_or_percentage(input, parser, l_basis)?.clamp(0.0, f32::MAX);
-      let a = parse_number_or_percentage(input, parser, ab_basis)?;
-      let b = parse_number_or_percentage(input, parser, ab_basis)?;
+      let (l, a, b) = parse_lab_components(input, parser, l_basis, ab_basis)?;
       let alpha = parse_alpha(input, parser)?;
       let lab = f(l, a, b, alpha);
 
@@ -1225,24 +1222,49 @@ fn parse_lch<'i, 't, T: TryFrom<CssColor> + ColorSpace, F: Fn(f32, f32, f32, f32
   // https://www.w3.org/TR/css-color-4/#funcdef-lch
   input.parse_nested_block(|input| {
     parser.parse_relative::<T, _, _>(input, |input, parser| {
-      if let Some(from) = &mut parser.from {
-        // Relative angles should be normalized.
-        // https://www.w3.org/TR/css-color-5/#relative-LCH
-        from.components.2 %= 360.0;
-        if from.components.2 < 0.0 {
-          from.components.2 += 360.0;
-        }
-      }
-
-      let l = parse_number_or_percentage(input, parser, l_basis)?.clamp(0.0, f32::MAX);
-      let c = parse_number_or_percentage(input, parser, c_basis)?.clamp(0.0, f32::MAX);
-      let h = parse_angle_or_number(input, parser)?;
+      let (l, c, h) = parse_lch_components(input, parser, l_basis, c_basis)?;
       let alpha = parse_alpha(input, parser)?;
       let lab = f(l, c, h, alpha);
 
       Ok(CssColor::LAB(Box::new(lab)))
     })
   })
+}
+
+#[inline]
+pub(crate) fn parse_lab_components<'i, 't>(
+  input: &mut Parser<'i, 't>,
+  parser: &mut ComponentParser,
+  l_basis: f32,
+  ab_basis: f32,
+) -> Result<(f32, f32, f32), ParseError<'i, ParserError<'i>>> {
+  // f32::max() does not propagate NaN, so use clamp for now until f32::maximum() is stable.
+  let l = parse_number_or_percentage(input, parser, l_basis)?.clamp(0.0, f32::MAX);
+  let a = parse_number_or_percentage(input, parser, ab_basis)?;
+  let b = parse_number_or_percentage(input, parser, ab_basis)?;
+  Ok((l, a, b))
+}
+
+#[inline]
+pub(crate) fn parse_lch_components<'i, 't>(
+  input: &mut Parser<'i, 't>,
+  parser: &mut ComponentParser,
+  l_basis: f32,
+  c_basis: f32,
+) -> Result<(f32, f32, f32), ParseError<'i, ParserError<'i>>> {
+  if let Some(from) = &mut parser.from {
+    // Relative angles should be normalized.
+    // https://www.w3.org/TR/css-color-5/#relative-LCH
+    from.components.2 %= 360.0;
+    if from.components.2 < 0.0 {
+      from.components.2 += 360.0;
+    }
+  }
+
+  let l = parse_number_or_percentage(input, parser, l_basis)?.clamp(0.0, f32::MAX);
+  let c = parse_number_or_percentage(input, parser, c_basis)?.clamp(0.0, f32::MAX);
+  let h = parse_angle_or_number(input, parser)?;
+  Ok((l, c, h))
 }
 
 /// Parses the alpha() function.

@@ -11,8 +11,8 @@ use crate::targets::{should_compile, Features, Targets};
 use crate::traits::{Parse, ParseWithOptions, ToCss};
 use crate::values::angle::Angle;
 use crate::values::color::{
-  parse_hsl_hwb_components, parse_rgb_components, ColorFallbackKind, ComponentParser, CssColor, LightDarkColor,
-  HSL, RGB, RGBA,
+  parse_hsl_hwb_components, parse_lab_components, parse_lch_components, parse_rgb_components, ColorFallbackKind,
+  ComponentParser, CssColor, LightDarkColor, HSL, OKLAB, OKLCH, RGB, RGBA,
 };
 use crate::values::ident::{CustomIdent, DashedIdent, DashedIdentReference, Ident};
 use crate::values::length::{serialize_dimension, LengthValue};
@@ -1103,6 +1103,9 @@ impl<'i> TokenList<'i> {
               features |= light.get_features();
               features |= dark.get_features();
             }
+            UnresolvedColor::OKLAB { .. } | UnresolvedColor::OKLCH { .. } => {
+              features |= Features::OklabColors;
+            }
             _ => {}
           }
         }
@@ -1482,6 +1485,30 @@ pub enum UnresolvedColor<'i> {
     #[cfg_attr(feature = "serde", serde(borrow))]
     alpha: TokenList<'i>,
   },
+  /// An oklab() color.
+  OKLAB {
+    /// The lightness component.
+    l: f32,
+    /// The a component.
+    a: f32,
+    /// The b component.
+    b: f32,
+    /// The unresolved alpha component.
+    #[cfg_attr(feature = "serde", serde(borrow))]
+    alpha: TokenList<'i>,
+  },
+  /// An oklch() color.
+  OKLCH {
+    /// The lightness component.
+    l: f32,
+    /// The chroma component.
+    c: f32,
+    /// The hue component.
+    h: f32,
+    /// The unresolved alpha component.
+    #[cfg_attr(feature = "serde", serde(borrow))]
+    alpha: TokenList<'i>,
+  },
   /// The light-dark() function.
   #[cfg_attr(feature = "serde", serde(rename = "light-dark"))]
   LightDark {
@@ -1536,6 +1563,26 @@ impl<'i> UnresolvedColor<'i> {
           })
         })
       },
+      "oklab" => {
+        input.parse_nested_block(|input| {
+          parser.parse_relative::<OKLAB, _, _>(input, |input, parser| {
+            let (l, a, b) = parse_lab_components(input, parser, 1.0, 0.4)?;
+            input.expect_delim('/')?;
+            let alpha = TokenList::parse(input, options, 0)?;
+            Ok(UnresolvedColor::OKLAB { l, a, b, alpha })
+          })
+        })
+      },
+      "oklch" => {
+        input.parse_nested_block(|input| {
+          parser.parse_relative::<OKLCH, _, _>(input, |input, parser| {
+            let (l, c, h) = parse_lch_components(input, parser, 1.0, 0.4)?;
+            input.expect_delim('/')?;
+            let alpha = TokenList::parse(input, options, 0)?;
+            Ok(UnresolvedColor::OKLCH { l, c, h, alpha })
+          })
+        })
+      },
       "light-dark" => {
         input.parse_nested_block(|input| {
           let light = input.parse_until_before(Delimiter::Comma, |input|
@@ -1547,6 +1594,16 @@ impl<'i> UnresolvedColor<'i> {
         })
       },
       _ => Err(input.new_custom_error(ParserError::InvalidValue))
+    }
+  }
+
+  /// Returns an rgb() color with the given unresolved alpha, used as a fallback for other color spaces.
+  fn rgb_with_alpha(rgb: RGBA, alpha: &TokenList<'i>) -> Self {
+    UnresolvedColor::RGB {
+      r: rgb.red as f32,
+      g: rgb.green as f32,
+      b: rgb.blue as f32,
+      alpha: alpha.clone(),
     }
   }
 
@@ -1599,6 +1656,48 @@ impl<'i> UnresolvedColor<'i> {
         Percentage(*s / 100.0).to_css(dest)?;
         dest.write_char(' ')?;
         Percentage(*l / 100.0).to_css(dest)?;
+        dest.delim('/', true)?;
+        alpha.to_css(dest, is_custom_property)?;
+        dest.write_char(')')
+      }
+      UnresolvedColor::OKLAB { l, a, b, alpha } => {
+        if should_compile!(dest.targets.current, OklabColors) {
+          let rgb = RGBA::from(OKLAB {
+            l: *l,
+            a: *a,
+            b: *b,
+            alpha: 1.0,
+          });
+          return UnresolvedColor::rgb_with_alpha(rgb, alpha).to_css(dest, is_custom_property);
+        }
+
+        dest.write_str("oklab(")?;
+        Percentage(*l).to_css(dest)?;
+        dest.write_char(' ')?;
+        a.to_css(dest)?;
+        dest.write_char(' ')?;
+        b.to_css(dest)?;
+        dest.delim('/', true)?;
+        alpha.to_css(dest, is_custom_property)?;
+        dest.write_char(')')
+      }
+      UnresolvedColor::OKLCH { l, c, h, alpha } => {
+        if should_compile!(dest.targets.current, OklabColors) {
+          let rgb = RGBA::from(OKLCH {
+            l: *l,
+            c: *c,
+            h: *h,
+            alpha: 1.0,
+          });
+          return UnresolvedColor::rgb_with_alpha(rgb, alpha).to_css(dest, is_custom_property);
+        }
+
+        dest.write_str("oklch(")?;
+        Percentage(*l).to_css(dest)?;
+        dest.write_char(' ')?;
+        c.to_css(dest)?;
+        dest.write_char(' ')?;
+        h.to_css(dest)?;
         dest.delim('/', true)?;
         alpha.to_css(dest, is_custom_property)?;
         dest.write_char(')')

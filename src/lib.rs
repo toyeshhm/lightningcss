@@ -20477,6 +20477,100 @@ mod tests {
       },
     );
 
+    prefix_test(
+      r#"
+      .foo {
+        --a: oklch(92.19% 0.04 20 / var(--alpha));
+        --b: oklab(40.101% 0.1147 0.0453 / var(--alpha));
+        --c: oklch(var(--x) 0.04 20 / var(--alpha));
+        --d: oklab(40.101% var(--x) 0.0453 / var(--alpha));
+        --e: oklch(from yellow l c h / var(--alpha));
+        --f: oklch(92.19% 0.04 20 / calc(var(--alpha) / 2));
+        --g: oklch(none 0.04 20 / var(--alpha));
+        color: oklch(92.19% 0.04 20 / var(--alpha));
+      }
+      "#,
+      indoc! { r#"
+        .foo {
+          --a: rgba(255, 219, 218, var(--alpha));
+          --b: rgba(125, 35, 41, var(--alpha));
+          --c: oklch(var(--x) .04 20 / var(--alpha));
+          --d: oklab(40.101% var(--x) .0453 / var(--alpha));
+          --e: rgba(255, 255, 0, var(--alpha));
+          --f: rgba(255, 219, 218, calc(var(--alpha) / 2));
+          --g: oklch(none .04 20 / var(--alpha));
+          color: rgba(255, 219, 218, var(--alpha));
+        }
+      "#},
+      Browsers {
+        safari: Some(11 << 16),
+        ..Browsers::default()
+      },
+    );
+
+    prefix_test(
+      r#"
+      .foo {
+        --a: oklch(92.19% 0.04 20 / var(--alpha));
+        --b: oklab(40.101% 0.1147 0.0453 / var(--alpha));
+        color: oklch(92.19% 0.04 20 / var(--alpha));
+      }
+      "#,
+      indoc! { r#"
+        .foo {
+          --a: rgb(255 219 218 / var(--alpha));
+          --b: rgb(125 35 41 / var(--alpha));
+          color: rgb(255 219 218 / var(--alpha));
+        }
+      "#},
+      Browsers {
+        chrome: Some(90 << 16),
+        ..Browsers::default()
+      },
+    );
+
+    prefix_test(
+      r#"
+      @supports (color: oklch(0% 0 0 / var(--alpha))) {
+        .foo {
+          color: oklch(92.19% 0.04 20 / var(--alpha));
+        }
+      }
+      "#,
+      indoc! { r#"
+        @supports (color: oklch(0% 0 0 / var(--alpha))) {
+          .foo {
+            color: oklch(92.19% .04 20 / var(--alpha));
+          }
+        }
+      "#},
+      Browsers {
+        safari: Some(11 << 16),
+        ..Browsers::default()
+      },
+    );
+
+    prefix_test(
+      r#"
+      .foo {
+        --a: oklch(92.19% 0.04 20 / var(--alpha));
+        --b: oklab(40.101% 0.1147 0.0453 / var(--alpha));
+        color: oklch(92.19% 0.04 20 / var(--alpha));
+      }
+      "#,
+      indoc! { r#"
+        .foo {
+          --a: oklch(92.19% .04 20 / var(--alpha));
+          --b: oklab(40.101% .1147 .0453 / var(--alpha));
+          color: oklch(92.19% .04 20 / var(--alpha));
+        }
+      "#},
+      Browsers {
+        chrome: Some(111 << 16),
+        ..Browsers::default()
+      },
+    );
+
     test(
       r#"
       .foo {
